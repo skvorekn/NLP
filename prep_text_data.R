@@ -50,3 +50,66 @@ tokenizer
 tokenizer %>% 
   fit_text_tokenizer(text)
 
+tokenizer$document_count
+
+tokenizer$word_index %>%
+  head()
+
+# excludes words not in the top 1000
+text_seqs <- texts_to_sequences(tokenizer, text)
+
+text_seqs %>%
+  head()
+
+# Set parameters:
+maxlen <- 100
+batch_size <- 32
+embedding_dims <- 50
+filters <- 64
+kernel_size <- 3
+hidden_dims <- 50
+epochs <- 5
+
+# return a matrix with # columns = # words (or the # words in the longest sentence)
+# reviews with fewer words are padded with 0s
+# longer reviews are cut
+x_train <- text_seqs %>%
+  pad_sequences(maxlen = maxlen)
+dim(x_train)
+
+# encode response variables with 1 for 5 stars and 0 for anything else
+y_train <- clothing_reviews$Liked
+length(y_train)
+
+# now need to convert into something that will give info about the features
+# word embeddings or word vectors are learned from the text data
+# encode in a few dimensions while maximizing the information
+# could also use one-hot encoding,  one-hot hashing, or pre-trained embeddings (GloVe)
+
+model <- keras_model_sequential() %>% 
+  layer_embedding(max_features, embedding_dims, input_length = maxlen) %>%
+  layer_dropout(0.2) %>%
+  layer_conv_1d(
+    filters, kernel_size, 
+    padding = "valid", activation = "relu", strides = 1
+  ) %>%
+  layer_global_max_pooling_1d() %>%
+  layer_dense(hidden_dims) %>%
+  layer_dropout(0.2) %>%
+  layer_activation("relu") %>%
+  layer_dense(1) %>%
+  layer_activation("sigmoid") %>% compile(
+    loss = "binary_crossentropy",
+    optimizer = "adam",
+    metrics = "accuracy"
+  )
+model
+hist <- model %>%
+  fit(
+    x_train,
+    y_train,
+    batch_size = batch_size,
+    epochs = epochs,
+    validation_split = 0.3
+  )
+plot(hist)
